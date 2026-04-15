@@ -1,0 +1,7 @@
+flask
+transformers
+torch --index-url https://download.pytorch.org/whl/cpu
+numpy<2
+matplotlib>=3.9
+seaborn
+pdfplumber
