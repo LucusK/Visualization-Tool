@@ -1,0 +1,34 @@
+services:
+
+  # ── PHP + Apache — serves the web UI ────────────────────────────────────────
+  web:
+    image: php:8.3-apache
+    ports:
+      - "8080:80"           # browse at http://localhost:8080
+    volumes:
+      - ./web:/var/www/html                         # PHP source files
+      - ./output/heatmaps:/var/www/html/heatmaps    # heatmap PNGs served as static files
+    depends_on:
+      - api
+    networks:
+      - appnet
+
+  # ── Python Flask — ingest + search API ──────────────────────────────────────
+  api:
+    build: ./app            # uses app/Dockerfile
+    ports:
+      - "5000:5000"         # exposed for debugging; PHP calls http://api:5000 internally
+    volumes:
+      - ./db:/app/db                    # SQLite database file
+      - ./embeddings:/app/embeddings    # per-passage .npy embedding files
+      - ./output:/app/output            # heatmap PNGs written here by Flask
+      - huggingface_cache:/root/.cache/huggingface  # ColBERT model cached across restarts
+    networks:
+      - appnet
+
+networks:
+  appnet:
+    driver: bridge
+
+volumes:
+  huggingface_cache:    # named volume — survives docker compose down, avoids re-downloading ColBERT
