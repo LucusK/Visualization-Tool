@@ -47,10 +47,10 @@ def render_heatmap(
         sim,
         ax=ax,
         xticklabels=doc_tokens,
-        yticklabels=query_tokens,
+        yticklabels=False,
         cmap="RdYlGn",
-        vmin=-1,
-        vmax=1,
+        vmin=float(sim.min()),
+        vmax=float(sim.max()),
         linewidths=0.3,
         linecolor="grey",
         annot=(Q * D <= 400),   # numbers only for small matrices — avoids clutter
@@ -73,9 +73,7 @@ def render_heatmap(
         fontsize=10, pad=12,
     )
     ax.set_xlabel("Document tokens", fontsize=10)
-    ax.set_ylabel("Query tokens", fontsize=10)
     ax.tick_params(axis="x", rotation=45, labelsize=8)
-    ax.tick_params(axis="y", rotation=0,  labelsize=8)
 
     plt.tight_layout()
     fig.savefig(out_path, dpi=150, bbox_inches="tight")

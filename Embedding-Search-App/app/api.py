@@ -191,9 +191,10 @@ def search():
         d_emb = passage_embs[r["list_index"]]
         _, d_tokens = encode(r["chunk_text"])
 
+        sim = q_emb @ d_emb.T
         heatmap_filename = f"{query_hash}_p{r['passage_id']}.png"
         render_heatmap(
-            sim=q_emb @ d_emb.T,
+            sim=sim,
             query_tokens=q_tokens,
             doc_tokens=d_tokens,
             query_text=query,
@@ -207,6 +208,9 @@ def search():
             "chunk_text":  r["chunk_text"],
             "score":       round(float(r["score"]), 4),
             "heatmap_url": f"/heatmaps/{heatmap_filename}",
+            "sim_min":     round(float(sim.min()), 3),
+            "sim_max":     round(float(sim.max()), 3),
+            "query_tokens": list(q_tokens),
         })
 
     return jsonify({"query": query, "results": output}), 200

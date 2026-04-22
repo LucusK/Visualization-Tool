@@ -298,10 +298,48 @@
       border-radius: 5px;
       background: #f9f9f9;
     }
+    .heatmap-inner {
+      display: inline-flex;
+      align-items: flex-start;
+      min-width: 100%;
+    }
+    .heatmap-ylabels {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: #f2f3f5;
+      border-right: 1px solid #ddd;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      min-width: 52px;
+      max-width: 110px;
+    }
+    .heatmap-ylabel-hdr {
+      font-size: 0.58rem;
+      color: #bbb;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      text-align: center;
+      padding: 3px 4px;
+      border-bottom: 1px solid #ddd;
+      flex-shrink: 0;
+    }
+    .heatmap-ylabel-item {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      font-size: 0.62rem;
+      color: #444;
+      white-space: nowrap;
+      padding: 0 5px 0 3px;
+      min-height: 0;
+      overflow: hidden;
+    }
     .heatmap-scroll img {
       display: block;
       max-height: 300px;
-      border-radius: 5px;
     }
     .heatmap-link {
       display: inline-block;
@@ -403,9 +441,9 @@
       <div class="add-row">
         <input type="text" id="wiki-input" placeholder="e.g. support vector machines, decision trees…" />
         <select id="wiki-limit">
-          <option value="1">Top 1</option>
+          <option value="1" selected>Top 1</option>
           <option value="2">Top 2</option>
-          <option value="3" selected>Top 3</option>
+          <option value="3">Top 3</option>
           <option value="5">Top 5</option>
         </select>
         <button id="add-btn" onclick="addWikiArticles()">Add</button>
@@ -435,15 +473,9 @@
     const addFeedback = document.getElementById('add-feedback');
 
     // ── Query chips ────────────────────────────────────────────────────────────
-    const FALLBACK_QUERIES = [
-      'how does this algorithm work?',
-      'what are the advantages and disadvantages?',
-      'how does it handle large datasets?',
-      'what are the key hyperparameters to tune?',
-      'when should I use this method?',
-    ];
+    const FALLBACK_QUERIES = ['machine learning', 'neural networks', 'classification', 'regression', 'clustering'];
 
-    let docQueries = [];   // generated from loaded documents, rebuilt by loadCorpus()
+    let docQueries = [];   // titles of loaded documents, rebuilt by loadCorpus()
 
     function getCustomQueries() {
       return JSON.parse(localStorage.getItem('customQueries') || '[]');
@@ -454,7 +486,7 @@
     }
 
     function renderChips() {
-      const custom   = getCustomQueries();
+      const custom    = getCustomQueries();
       const suggested = docQueries.length > 0 ? docQueries : FALLBACK_QUERIES;
       const all = [
         ...suggested.map(q => ({ q, isCustom: false })),
@@ -492,7 +524,8 @@
       const q = queryInput.value.trim();
       if (!q) return;
       const custom = getCustomQueries();
-      if (!DEFAULT_QUERIES.includes(q) && !custom.includes(q)) {
+      const suggested = docQueries.length > 0 ? docQueries : FALLBACK_QUERIES;
+      if (!suggested.includes(q) && !custom.includes(q)) {
         custom.push(q);
         setCustomQueries(custom);
         renderChips();
@@ -506,11 +539,7 @@
         const data = await res.json();
         const docs = data.documents || [];
 
-        // Build document-specific query chips from titles
-        docQueries = docs.map(d => {
-          const title = d.filename.replace(/\.[^.]+$/, '');  // strip extension if present
-          return `How does ${title} work?`;
-        });
+        docQueries = docs.map(d => d.filename.replace(/\.[^.]+$/, ''));
         renderChips();
 
         if (docs.length === 0) {
@@ -626,13 +655,19 @@
               <div class="heatmap-header">
                 <span class="heatmap-label">Token similarity heatmap</span>
                 <span class="color-legend">
-                  <span>−1</span>
+                  <span>${r.sim_min}</span>
                   <span class="color-legend-bar"></span>
-                  <span>+1</span>
+                  <span>${r.sim_max}</span>
                 </span>
               </div>
               <div class="heatmap-scroll">
-                <img src="${esc(r.heatmap_url)}" alt="Heatmap for result ${i + 1}" loading="lazy" />
+                <div class="heatmap-inner">
+                  <div class="heatmap-ylabels" id="ylabels-${i}">
+                    <div class="heatmap-ylabel-hdr">query</div>
+                    ${r.query_tokens.map(t => `<div class="heatmap-ylabel-item">${esc(t)}</div>`).join('')}
+                  </div>
+                  <img src="${esc(r.heatmap_url)}" alt="Heatmap for result ${i + 1}" loading="lazy" onload="syncLabelHeight(this)" />
+                </div>
               </div>
               <a class="heatmap-link" href="${esc(r.heatmap_url)}" target="_blank">Open full size ↗</a>
             </div>
@@ -649,6 +684,11 @@
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
+    function syncLabelHeight(img) {
+      const ylabels = img.previousElementSibling;
+      if (ylabels) ylabels.style.height = img.offsetHeight + 'px';
+    }
+
     function esc(str) {
       return String(str)
         .replace(/&/g, '&amp;')
