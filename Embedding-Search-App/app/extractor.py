@@ -8,6 +8,7 @@ import requests
 import pdfplumber
 
 WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
+WIKI_HEADERS  = {"User-Agent": "EmbeddingVisualizationTool/1.0 (maximus.kim@gmail.com)"}
 
 ALLOWED_EXTENSIONS = {".txt", ".pdf", ".md", ".rst", ".csv", ".json", ".xml", ".html"}
 
@@ -77,11 +78,11 @@ def search_wikipedia(term: str, limit: int = 3) -> list[tuple[str, str]]:
     intro-section plain text for all matches in one batch request.
     """
     # Step 1: discover matching page titles via OpenSearch
-    search_resp = requests.get(WIKIPEDIA_API, params={
+    search_resp = requests.get(WIKIPEDIA_API, headers=WIKI_HEADERS, params={
         "action":    "opensearch",
         "search":    term,
         "limit":     limit,
-        "namespace": "0",        # main articles only
+        "namespace": "0",
         "format":    "json",
     }, timeout=10)
     search_resp.raise_for_status()
@@ -91,7 +92,7 @@ def search_wikipedia(term: str, limit: int = 3) -> list[tuple[str, str]]:
         raise ValueError(f"No Wikipedia results found for: {term!r}")
 
     # Step 2: fetch intro plain text for all titles in one batch request
-    extract_resp = requests.get(WIKIPEDIA_API, params={
+    extract_resp = requests.get(WIKIPEDIA_API, headers=WIKI_HEADERS, params={
         "action":      "query",
         "prop":        "extracts",
         "titles":      "|".join(titles),
@@ -133,13 +134,13 @@ def _extract_wikipedia(url: str, parsed: urllib.parse.ParseResult) -> tuple[str,
         raise ValueError(f"Could not parse Wikipedia page title from URL: {url}")
     title = urllib.parse.unquote(path_parts[1])
 
-    resp = requests.get(WIKIPEDIA_API, params={
+    resp = requests.get(WIKIPEDIA_API, headers=WIKI_HEADERS, params={
         "action":  "query",
         "prop":    "extracts",
         "titles":  title,
         "format":  "json",
-        "explaintext": "1",   # plain text, no HTML or wiki markup
-        "exintro": "1",       # intro section only — focused and readable
+        "explaintext": "1",
+        "exintro": "1",
     }, timeout=10)
     resp.raise_for_status()
 

@@ -435,13 +435,15 @@
     const addFeedback = document.getElementById('add-feedback');
 
     // ── Query chips ────────────────────────────────────────────────────────────
-    const DEFAULT_QUERIES = [
+    const FALLBACK_QUERIES = [
       'how does this algorithm work?',
       'what are the advantages and disadvantages?',
       'how does it handle large datasets?',
       'what are the key hyperparameters to tune?',
       'when should I use this method?',
     ];
+
+    let docQueries = [];   // generated from loaded documents, rebuilt by loadCorpus()
 
     function getCustomQueries() {
       return JSON.parse(localStorage.getItem('customQueries') || '[]');
@@ -452,9 +454,10 @@
     }
 
     function renderChips() {
-      const custom = getCustomQueries();
+      const custom   = getCustomQueries();
+      const suggested = docQueries.length > 0 ? docQueries : FALLBACK_QUERIES;
       const all = [
-        ...DEFAULT_QUERIES.map(q => ({ q, isCustom: false })),
+        ...suggested.map(q => ({ q, isCustom: false })),
         ...custom.map(q => ({ q, isCustom: true })),
       ];
       chipsDiv.innerHTML = all.map(({ q, isCustom }, i) => `
@@ -468,14 +471,16 @@
     }
 
     function selectChip(i) {
-      const all = [...DEFAULT_QUERIES, ...getCustomQueries()];
+      const suggested = docQueries.length > 0 ? docQueries : FALLBACK_QUERIES;
+      const all = [...suggested, ...getCustomQueries()];
       if (all[i]) { queryInput.value = all[i]; runSearch(); }
     }
 
     function deleteChip(e, i) {
       e.stopPropagation();
       const custom = getCustomQueries();
-      const offset = DEFAULT_QUERIES.length;
+      const suggested = docQueries.length > 0 ? docQueries : FALLBACK_QUERIES;
+      const offset = suggested.length;
       if (i >= offset) {
         custom.splice(i - offset, 1);
         setCustomQueries(custom);
@@ -500,6 +505,14 @@
         const res  = await fetch('/documents');
         const data = await res.json();
         const docs = data.documents || [];
+
+        // Build document-specific query chips from titles
+        docQueries = docs.map(d => {
+          const title = d.filename.replace(/\.[^.]+$/, '');  // strip extension if present
+          return `How does ${title} work?`;
+        });
+        renderChips();
+
         if (docs.length === 0) {
           corpusInfo.innerHTML = 'No documents loaded — add Wikipedia articles above to get started.';
         } else {
