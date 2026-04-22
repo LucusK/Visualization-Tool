@@ -1,0 +1,6 @@
+output/
+embeddings/
+db/
+__pycache__/
+*.pyc
+*.npy

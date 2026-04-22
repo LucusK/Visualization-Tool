@@ -12,10 +12,12 @@ result explaining why it was retrieved.
 | Technology | Role |
 |---|---|
 | **Python** | Text extraction, ColBERT encoding, MaxSim search, heatmap generation |
-| **PHP** | Web frontend — file upload UI, search form, results page |
+| **Flask** | Serves the HTML/JS frontend and the `/ingest`, `/search`, `/heatmaps` API endpoints |
+| **HTML/JS** | Single-page UI — sample query dropdown, free-text input, inline heatmap results |
 | **SQL (SQLite)** | Stores document metadata and passage chunks |
-| **JDBC** | ⚠️ JDBC is Java-specific and does not naturally fit a PHP/Python stack. It is noted here as a stated requirement. If a Java component is needed, a small Java service could act as a database access layer — but for this project, Python (`sqlite3`) and PHP (`PDO`) connect to SQLite directly without JDBC. |
 | **Agile** | Development methodology — work in short iterations, one feature at a time |
+
+> **Note on PHP:** PHP was originally planned for the frontend but was dropped — Flask can serve the HTML page directly, keeping the stack to a single process with no extra server to manage.
 
 ---
 
@@ -25,12 +27,12 @@ result explaining why it was retrieved.
 Browser
   │
   ▼
-PHP Frontend  (upload.php / search.php / results.php)
-  │  HTTP calls (form POST / fetch)
-  ▼
-Python API  (Flask — api.py)
-  ├── /ingest   ← receives file, extracts text, chunks, embeds, stores
-  └── /search   ← receives query, returns top-10 passages + heatmap paths
+Flask (api.py)  ─── GET /             → serves web/index.html
+  │              ─── GET /heatmaps/*  → serves generated PNGs
+  │              ─── GET /search?q=   → returns top-10 + heatmap URLs
+  │              ─── POST /ingest     → file upload (optional, for future use)
+  │
+  ├── Auto-ingest on startup: txt-docs/*.txt → "Docs" collection (if DB empty)
   │
   ├── SQLite DB  (db/app.db)
   │     ├── documents  (id, filename, upload_time)
@@ -109,25 +111,24 @@ score(Q, D) = Σ_i  max_j  cos_sim(Q[i], D[j])
 
 ---
 
-## Files to Create
- 
-### Python API
-| File | Purpose |
-|---|---|
-| `app/api.py` | Flask app — `/ingest` and `/search` endpoints |
-| `app/extractor.py` | `extract_text(filepath)` — dispatches by extension |
-| `app/chunker.py` | `chunk_text(text, size=200, overlap=20)` → list of strings |
-| `app/encoder.py` | Loads ColBERT once; `encode(text)` → (emb, tokens) |
-| `app/search.py` | `maxsim_score()`, `top_k()` |
-| `app/db.py` | SQLite helpers — init schema, insert/query documents & passages |
+## Files to Create / Modify
 
-### PHP Frontend
-| File | Purpose |
-|---|---|
-| `web/index.php` | Landing page — upload form + search bar |
-| `web/upload.php` | Handles POST, calls `/ingest`, shows confirmation |
-| `web/search.php` | Handles GET `?q=`, calls `/search`, renders results + heatmaps |
-| `web/style.css` | Minimal styling |
+### Python API (already built — Iterations 1–3 complete)
+| File | Status | Purpose |
+|---|---|---|
+| `app/api.py` | ✅ done | Flask app — `/ingest` and `/search` endpoints |
+| `app/extractor.py` | ✅ done | `extract_text(filepath)` — dispatches by extension |
+| `app/chunker.py` | ✅ done | `chunk_text(text, size=200, overlap=20)` → list of strings |
+| `app/encoder.py` | ✅ done | Loads ColBERT once; `encode(text)` → (emb, tokens) |
+| `app/search.py` | ✅ done | `maxsim_score()`, `top_k()` |
+| `app/db.py` | ✅ done | SQLite helpers — init schema, insert/query documents & passages |
+| `app/heatmap.py` | ✅ done | `render_heatmap()` — saves PNG to caller-specified path |
+
+### Frontend & wiring (Iteration 4)
+| File | Status | Purpose |
+|---|---|---|
+| `web/index.html` | 🔲 todo | Single-page UI — sample query dropdown, free-text input, inline results |
+| `app/api.py` | 🔲 modify | Add `GET /` (serve index.html), `GET /heatmaps/<file>` (serve PNGs), auto-ingest on startup |
 
 ### Shared
 | File | Purpose |
@@ -135,6 +136,7 @@ score(Q, D) = Σ_i  max_j  cos_sim(Q[i], D[j])
 | `db/app.db` | SQLite database (auto-created on first run) |
 | `embeddings/` | Per-passage `.npy` embedding files |
 | `output/heatmaps/` | Generated heatmap PNGs served to browser |
+| `txt-docs/` | Sample documents pre-loaded on startup (apple, banana, mango, pineapple, watermelon) |
 
 ---
 
@@ -152,14 +154,16 @@ score(Q, D) = Σ_i  max_j  cos_sim(Q[i], D[j])
 - Wire `render_heatmap()` from `visualize.py` into the search results
 - Test: heatmap PNG generated for each of the 10 results
 
-### Iteration 4 — PHP frontend
-- `index.php`, `upload.php`, `search.php`, `style.css`
-- Test: full end-to-end in browser — upload file, search, see heatmaps
+### Iteration 4 — Flask-served HTML/JS frontend *(next)*
+- Modify `api.py`: auto-ingest `txt-docs/*.txt` on startup if DB is empty; add `GET /` to serve `web/index.html`; add `GET /heatmaps/<filename>` to serve generated PNGs
+- Create `web/index.html`: sample query dropdown (pre-defined queries about the fruit docs), free-text input, JS `fetch` to `/search`, render top results + inline heatmap `<img>` tags
+- Sample queries to include: "what fruit grows in tropical climates?", "which fruits are native to Asia?", "what are the health benefits of fruit?", "how are fruits grown commercially?"
+- Test: open browser, pick a sample query, see top passages + heatmaps; type a custom query, same result
 
 ### Iteration 5 — Polish
-- Loading spinner during ingest/search (JS fetch + polling)
-- Error messages for bad file types, empty queries
-- Heatmap displayed inline (as `<img>`) next to each result
+- Loading spinner while search runs (JS fetch is async)
+- Error messages for empty queries or no documents ingested
+- Score displayed next to each result
 
 ---
 
@@ -167,7 +171,8 @@ score(Q, D) = Σ_i  max_j  cos_sim(Q[i], D[j])
 
 - **SQLite over PostgreSQL** — no server to manage; fine for a single-user research tool
 - **Embeddings on disk, not in DB** — a 200-token passage embedding is 200×768×4 = 600 KB; storing thousands as BLOBs would make the DB unwieldy
-- **PHP for frontend** — satisfies stated stack requirement; simple `curl`/`file_get_contents` calls to the Python API are sufficient
+- **Flask serves the frontend directly** — eliminates PHP as a separate process; `send_from_directory` for HTML and heatmap PNGs keeps everything in one server
+- **Auto-ingest sample docs on startup** — users see results immediately without a manual upload step; DB emptiness check prevents re-ingesting on restart
 - **Flask over FastAPI** — simpler setup, no async needed for this scale
 - **~200-word chunks with overlap** — balances passage length against ColBERT's 300-token limit; overlap prevents boundary cuts from losing context
 - **MaxSim scoring** — exact same function ColBERT uses internally, consistent with `visualize.py`

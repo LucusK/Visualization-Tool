@@ -75,3 +75,20 @@ def get_all_passages() -> list[dict]:
             "SELECT id, doc_id, chunk_text, emb_path FROM passages ORDER BY id"
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_all_documents() -> list[dict]:
+    """Return all documents as [{id, filename, upload_time}]."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT id, filename, upload_time FROM documents ORDER BY id"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def delete_all() -> None:
+    """Delete all documents and passages, reset autoincrement counters."""
+    with _connect() as conn:
+        conn.execute("DELETE FROM passages")
+        conn.execute("DELETE FROM documents")
+        conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('documents', 'passages')")

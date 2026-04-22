@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Embedding Visualization Tool</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 1.75rem 2rem;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 600; letter-spacing: -0.01em; }
+    header p  { color: #8892b0; font-size: 0.875rem; margin-top: 0.3rem; }
+
+    /* ── Search panel ── */
+    .search-panel {
+      max-width: 780px;
+      margin: 2rem auto 0;
+      padding: 0 1rem;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.45rem;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 0.7rem 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: 7px;
+      font-size: 0.95rem;
+      background: #fff;
+      color: #1a1a2e;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #4a90e2;
+      box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.18);
+    }
+
+    /* ── Query chips ── */
+    .chips-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 0.85rem;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.75rem;
+      background: #f0f4ff;
+      color: #1a56db;
+      border: 1px solid #c7d8f8;
+      border-radius: 99px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.12s;
+      user-select: none;
+    }
+    .chip:hover { background: #dce9ff; }
+    .chip-del {
+      font-size: 0.65rem;
+      color: #90aee8;
+      line-height: 1;
+      padding: 0 0.1rem;
+    }
+    .chip-del:hover { color: #c0392b; }
+
+    .search-row {
+      display: flex;
+      gap: 0.65rem;
+      margin-top: 1rem;
+    }
+    .search-row input { flex: 1; }
+
+    button#search-btn {
+      padding: 0.7rem 1.5rem;
+      background: #4a90e2;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    button#search-btn:hover:not(:disabled) { background: #357abd; }
+    button#search-btn:disabled { background: #b0bec5; cursor: not-allowed; }
+
+    button#save-btn {
+      padding: 0.7rem 1rem;
+      background: #fff;
+      color: #aaa;
+      border: 1px solid #d1d5db;
+      border-radius: 7px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    button#save-btn:hover { color: #4a90e2; border-color: #4a90e2; }
+
+    /* ── Corpus bar ── */
+    .corpus-bar {
+      max-width: 780px;
+      margin: 0.75rem auto 0;
+      padding: 0 1rem;
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: #aaa;
+      flex-wrap: wrap;
+    }
+    .corpus-bar strong { color: #555; }
+    .corpus-docs { flex: 1; min-width: 0; }
+    .corpus-docs span { color: #888; }
+    button.reset-btn {
+      background: none;
+      border: none;
+      color: #e05252;
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 0;
+      white-space: nowrap;
+    }
+    button.reset-btn:hover { text-decoration: underline; }
+
+    /* ── Status / spinner ── */
+    .status {
+      max-width: 780px;
+      margin: 1.5rem auto 0;
+      padding: 0 1rem;
+      font-size: 0.9rem;
+      color: #777;
+      min-height: 1.4rem;
+    }
+
+    /* ── Results ── */
+    .results {
+      max-width: 780px;
+      margin: 1.25rem auto 3rem;
+      padding: 0 1rem;
+    }
+
+    .result-meta {
+      font-size: 0.82rem;
+      color: #888;
+      margin-bottom: 1rem;
+    }
+    .result-meta strong { color: #333; }
+
+    /* ── Card ── */
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07), 0 0 0 1px rgba(0,0,0,0.04);
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.8rem 1.2rem;
+      border-bottom: 1px solid #f0f0f0;
+      background: #fafafa;
+    }
+    .rank {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #4a90e2;
+      min-width: 2rem;
+    }
+    .doc-badge {
+      font-size: 0.75rem;
+      background: #e8f0fe;
+      color: #1a56db;
+      padding: 0.2rem 0.65rem;
+      border-radius: 99px;
+      font-weight: 500;
+    }
+    .score-badge {
+      margin-left: auto;
+      font-size: 0.78rem;
+      color: #888;
+    }
+    .score-badge strong { color: #333; font-weight: 600; }
+
+    .passage-text {
+      padding: 1rem 1.2rem;
+      font-size: 0.875rem;
+      line-height: 1.65;
+      color: #444;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    /* ── Top answer box ── */
+    .top-answer {
+      background: #fff;
+      border-left: 4px solid #4a90e2;
+      border-radius: 0 10px 10px 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04);
+      padding: 1.1rem 1.3rem;
+      margin-bottom: 1.5rem;
+    }
+    .top-answer-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #4a90e2;
+      margin-bottom: 0.5rem;
+    }
+    .top-answer-text {
+      font-size: 0.925rem;
+      line-height: 1.7;
+      color: #222;
+    }
+    .top-answer-source {
+      margin-top: 0.6rem;
+      font-size: 0.78rem;
+      color: #999;
+    }
+    .top-answer-source a {
+      color: #4a90e2;
+      text-decoration: none;
+    }
+    .top-answer-source a:hover { text-decoration: underline; }
+
+    .heatmap-section {
+      padding: 1rem 1.2rem;
+    }
+    .heatmap-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.6rem;
+    }
+    .heatmap-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #aaa;
+    }
+
+    /* Color scale legend — sits outside the scroll container so it stays visible */
+    .color-legend {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.7rem;
+      color: #888;
+      margin-left: auto;
+    }
+    .color-legend-bar {
+      width: 80px;
+      height: 10px;
+      border-radius: 3px;
+      /* RdYlGn colormap approximation matching seaborn's palette */
+      background: linear-gradient(to right, #d73027, #fc8d59, #fee08b, #ffffbf, #d9ef8b, #91cf60, #1a9850);
+      border: 1px solid #e0e0e0;
+    }
+
+    .heatmap-scroll {
+      overflow-x: auto;
+      border-radius: 5px;
+      background: #f9f9f9;
+    }
+    .heatmap-scroll img {
+      display: block;
+      max-height: 300px;
+      border-radius: 5px;
+    }
+    .heatmap-link {
+      display: inline-block;
+      margin-top: 0.5rem;
+      font-size: 0.78rem;
+      color: #4a90e2;
+      text-decoration: none;
+    }
+    .heatmap-link:hover { text-decoration: underline; }
+
+    /* ── Add document panel ── */
+    .add-panel {
+      max-width: 780px;
+      margin: 1.25rem auto 0;
+      padding: 0 1rem;
+    }
+    .add-panel details {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+    }
+    .add-panel summary {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #555;
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+    }
+    .add-panel summary::before { content: '＋ '; color: #4a90e2; }
+    .add-panel details[open] summary::before { content: '－ '; }
+    .add-row {
+      display: flex;
+      gap: 0.65rem;
+      margin-top: 0.75rem;
+    }
+    .add-row input { flex: 1; }
+    #wiki-limit { width: auto; padding: 0.7rem 0.5rem; }
+    button#add-btn {
+      padding: 0.7rem 1.2rem;
+      background: #fff;
+      color: #4a90e2;
+      border: 1px solid #4a90e2;
+      border-radius: 7px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s;
+    }
+    button#add-btn:hover:not(:disabled) { background: #4a90e2; color: #fff; }
+    button#add-btn:disabled { border-color: #b0bec5; color: #b0bec5; cursor: not-allowed; }
+    .add-feedback {
+      margin-top: 0.5rem;
+      font-size: 0.82rem;
+      min-height: 1.2rem;
+    }
+    .add-feedback.ok  { color: #1a9850; }
+    .add-feedback.err { color: #c0392b; }
+
+    /* ── States ── */
+    .msg-error {
+      background: #fff0f0;
+      border: 1px solid #fcc;
+      color: #c0392b;
+      padding: 0.9rem 1.1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+    .msg-empty {
+      text-align: center;
+      color: #bbb;
+      padding: 3rem 1rem;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Embedding Visualization Tool</h1>
+    <p>ColBERT token-level similarity — see exactly which tokens drive each retrieval match</p>
+  </header>
+
+  <div class="search-panel">
+    <div class="chips-label">Suggested queries</div>
+    <div class="chips" id="chips"></div>
+    <div class="search-row">
+      <input type="text" id="query-input" placeholder="Type a query and press Enter…" />
+      <button id="save-btn" onclick="saveQuery()" title="Save as suggestion">★ Save</button>
+      <button id="search-btn" onclick="runSearch()">Search</button>
+    </div>
+  </div>
+
+  <div class="add-panel">
+    <details>
+      <summary>Add Wikipedia articles</summary>
+      <div class="add-row">
+        <input type="text" id="wiki-input" placeholder="e.g. support vector machines, decision trees…" />
+        <select id="wiki-limit">
+          <option value="1">Top 1</option>
+          <option value="2">Top 2</option>
+          <option value="3" selected>Top 3</option>
+          <option value="5">Top 5</option>
+        </select>
+        <button id="add-btn" onclick="addWikiArticles()">Add</button>
+      </div>
+      <div class="add-feedback" id="add-feedback"></div>
+    </details>
+  </div>
+
+  <div class="corpus-bar">
+    <div class="corpus-docs" id="corpus-info">Loading corpus…</div>
+    <button class="reset-btn" onclick="resetCorpus()">Reset corpus</button>
+  </div>
+
+  <div class="status" id="status"></div>
+  <div class="results" id="results"></div>
+
+  <script>
+    const queryInput  = document.getElementById('query-input');
+    const searchBtn   = document.getElementById('search-btn');
+    const statusDiv   = document.getElementById('status');
+    const resultsDiv  = document.getElementById('results');
+    const chipsDiv    = document.getElementById('chips');
+    const corpusInfo  = document.getElementById('corpus-info');
+    const wikiInput   = document.getElementById('wiki-input');
+    const wikiLimit   = document.getElementById('wiki-limit');
+    const addBtn      = document.getElementById('add-btn');
+    const addFeedback = document.getElementById('add-feedback');
+
+    // ── Query chips ────────────────────────────────────────────────────────────
+    const DEFAULT_QUERIES = [
+      'how does this algorithm work?',
+      'what are the advantages and disadvantages?',
+      'how does it handle large datasets?',
+      'what are the key hyperparameters to tune?',
+      'when should I use this method?',
+    ];
+
+    function getCustomQueries() {
+      return JSON.parse(localStorage.getItem('customQueries') || '[]');
+    }
+
+    function setCustomQueries(arr) {
+      localStorage.setItem('customQueries', JSON.stringify(arr));
+    }
+
+    function renderChips() {
+      const custom = getCustomQueries();
+      const all = [
+        ...DEFAULT_QUERIES.map(q => ({ q, isCustom: false })),
+        ...custom.map(q => ({ q, isCustom: true })),
+      ];
+      chipsDiv.innerHTML = all.map(({ q, isCustom }, i) => `
+        <span class="chip" onclick="selectChip(${i})">
+          ${esc(q)}
+          ${isCustom
+            ? `<span class="chip-del" onclick="deleteChip(event,${i})" title="Remove">✕</span>`
+            : ''}
+        </span>
+      `).join('');
+    }
+
+    function selectChip(i) {
+      const all = [...DEFAULT_QUERIES, ...getCustomQueries()];
+      if (all[i]) { queryInput.value = all[i]; runSearch(); }
+    }
+
+    function deleteChip(e, i) {
+      e.stopPropagation();
+      const custom = getCustomQueries();
+      const offset = DEFAULT_QUERIES.length;
+      if (i >= offset) {
+        custom.splice(i - offset, 1);
+        setCustomQueries(custom);
+        renderChips();
+      }
+    }
+
+    function saveQuery() {
+      const q = queryInput.value.trim();
+      if (!q) return;
+      const custom = getCustomQueries();
+      if (!DEFAULT_QUERIES.includes(q) && !custom.includes(q)) {
+        custom.push(q);
+        setCustomQueries(custom);
+        renderChips();
+      }
+    }
+
+    // ── Corpus bar ─────────────────────────────────────────────────────────────
+    async function loadCorpus() {
+      try {
+        const res  = await fetch('/documents');
+        const data = await res.json();
+        const docs = data.documents || [];
+        if (docs.length === 0) {
+          corpusInfo.innerHTML = 'No documents loaded — add Wikipedia articles above to get started.';
+        } else {
+          const names = docs.map(d => `<span>${esc(d.filename)}</span>`).join(', ');
+          corpusInfo.innerHTML = `<strong>${docs.length}</strong> doc${docs.length !== 1 ? 's' : ''}: ${names}`;
+        }
+      } catch {}
+    }
+
+    async function resetCorpus() {
+      if (!confirm('Delete all documents and embeddings? This cannot be undone.')) return;
+      try {
+        const res = await fetch('/reset', { method: 'POST' });
+        if (res.ok) {
+          loadCorpus();
+          resultsDiv.innerHTML = '';
+          statusDiv.textContent = '';
+        }
+      } catch {}
+    }
+
+    // ── Wikipedia ingest ───────────────────────────────────────────────────────
+    async function addWikiArticles() {
+      const term = wikiInput.value.trim();
+      if (!term) { wikiInput.focus(); return; }
+
+      addBtn.disabled = true;
+      addFeedback.className = 'add-feedback';
+      addFeedback.textContent = `Searching Wikipedia for "${term}"…`;
+
+      try {
+        const res  = await fetch('/ingest_search', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ term, limit: parseInt(wikiLimit.value) }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          addFeedback.className = 'add-feedback err';
+          addFeedback.textContent = data.error || 'Failed to add articles.';
+        } else {
+          const summary = data.added
+            .map(a => `"${a.title}" (${a.num_passages} passage${a.num_passages !== 1 ? 's' : ''})`)
+            .join(', ');
+          addFeedback.className = 'add-feedback ok';
+          addFeedback.textContent = `Added: ${summary}`;
+          wikiInput.value = '';
+          loadCorpus();
+        }
+      } catch (err) {
+        addFeedback.className = 'add-feedback err';
+        addFeedback.textContent = `Request failed: ${err.message}`;
+      } finally {
+        addBtn.disabled = false;
+      }
+    }
+
+    // ── Search ─────────────────────────────────────────────────────────────────
+    async function runSearch() {
+      const q = queryInput.value.trim();
+      if (!q) { queryInput.focus(); return; }
+
+      searchBtn.disabled = true;
+      statusDiv.textContent = 'Encoding query and computing similarities…';
+      resultsDiv.innerHTML = '';
+
+      try {
+        const res  = await fetch('/search?q=' + encodeURIComponent(q));
+        const data = await res.json();
+
+        if (!res.ok) {
+          statusDiv.textContent = '';
+          resultsDiv.innerHTML = `<div class="msg-error">${esc(data.error || 'Search failed.')}</div>`;
+          return;
+        }
+
+        if (!data.results || data.results.length === 0) {
+          statusDiv.textContent = '';
+          resultsDiv.innerHTML = '<div class="msg-empty">No results found.</div>';
+          return;
+        }
+
+        statusDiv.textContent = '';
+
+        const top = data.results[0];
+        resultsDiv.innerHTML = `
+          <div class="top-answer">
+            <div class="top-answer-label">Best match</div>
+            <div class="top-answer-text">${esc(top.chunk_text)}</div>
+            <div class="top-answer-source">
+              from <a href="#result-1">${esc(top.doc_name)}</a>
+              &nbsp;·&nbsp; MaxSim score: ${top.score}
+            </div>
+          </div>
+          <div class="result-meta">${data.results.length} results for <strong>"${esc(q)}"</strong></div>
+        `;
+
+        for (const [i, r] of data.results.entries()) {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.id = `result-${i + 1}`;
+          card.innerHTML = `
+            <div class="card-header">
+              <span class="rank">#${i + 1}</span>
+              <span class="doc-badge">${esc(r.doc_name)}</span>
+              <span class="score-badge">MaxSim score: <strong>${r.score}</strong></span>
+            </div>
+            <div class="passage-text">${esc(r.chunk_text)}</div>
+            <div class="heatmap-section">
+              <div class="heatmap-header">
+                <span class="heatmap-label">Token similarity heatmap</span>
+                <span class="color-legend">
+                  <span>−1</span>
+                  <span class="color-legend-bar"></span>
+                  <span>+1</span>
+                </span>
+              </div>
+              <div class="heatmap-scroll">
+                <img src="${esc(r.heatmap_url)}" alt="Heatmap for result ${i + 1}" loading="lazy" />
+              </div>
+              <a class="heatmap-link" href="${esc(r.heatmap_url)}" target="_blank">Open full size ↗</a>
+            </div>
+          `;
+          resultsDiv.appendChild(card);
+        }
+
+      } catch (err) {
+        statusDiv.textContent = '';
+        resultsDiv.innerHTML = `<div class="msg-error">Request failed: ${esc(err.message)}</div>`;
+      } finally {
+        searchBtn.disabled = false;
+      }
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+    queryInput.addEventListener('keydown', e => { if (e.key === 'Enter') runSearch(); });
+    wikiInput.addEventListener('keydown',  e => { if (e.key === 'Enter') addWikiArticles(); });
+
+    renderChips();
+    loadCorpus();
+  </script>
+
+</body>
+</html>

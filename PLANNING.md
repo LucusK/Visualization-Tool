@@ -75,3 +75,6 @@ doc string    ──►  ColBERT tokenize + encode  ──►  D × 128  ─┘
 - Ingest files → produce embeddings → BM25 or cosine top-10 search.
 - For each result, generate and display the heatmap inline.
 - Stack: Python backend + simple HTML/JS frontend (no framework needed initially).
+
+
+I want an app that has sample files and matches them to queries, so a user can pick a query and see the similarity maps, or enter a query prompt themselves

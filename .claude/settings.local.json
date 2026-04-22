@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip show:*)",
+      "Bash(python -c \"import weaviate\")",
+      "Bash(pip list:*)",
+      "Bash(pip --version)",
+      "Read(//c/Users/maxim/AppData/Local/Programs/**)",
+      "Bash(py -0)",
+      "Bash(py -3.11 -m pip show weaviate-client)",
+      "Bash(py -3.11 -c \"import weaviate; print\\(weaviate.__version__\\)\")",
+      "Bash(py *)",
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(git *)"
+    ]
+  }
+}
